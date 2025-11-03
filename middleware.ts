@@ -92,8 +92,8 @@ export async function middleware(request: NextRequest) {
   const authPaths = ['/login', '/register']
   const isAuthPath = authPaths.includes(pathname)
 
-  // Onboarding route
-  const isOnboardingPath = pathname === '/onboarding'
+  // Onboarding routes
+  const isOnboardingPath = pathname.startsWith('/onboarding')
 
   // Auth callback route - never redirect
   const isAuthCallback = pathname === '/auth/callback'
@@ -130,7 +130,7 @@ export async function middleware(request: NextRequest) {
     if (!hasCompletedOnboarding) {
       // Incomplete profile → send to onboarding
       const url = request.nextUrl.clone()
-      url.pathname = '/onboarding'
+      url.pathname = '/onboarding/verifikasi'
       return NextResponse.redirect(url)
     } else {
       // Complete profile → send to browse page
@@ -143,7 +143,7 @@ export async function middleware(request: NextRequest) {
   // If accessing protected routes but onboarding incomplete
   if (isProtectedPath && !hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
-    url.pathname = '/onboarding'
+    url.pathname = '/onboarding/verifikasi'
     return NextResponse.redirect(url)
   }
 
