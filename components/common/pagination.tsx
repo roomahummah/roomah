@@ -22,6 +22,24 @@ export function Pagination({
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
     router.push(`${baseUrl}?${params.toString()}`, { scroll: false });
+    
+    // Scroll to candidate section on mobile after page change
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setTimeout(() => {
+        // Find the first candidate card or the grid container
+        const candidateGrid = document.querySelector('[class*="grid-cols"]');
+        if (candidateGrid) {
+          const headerOffset = 80; // Account for sticky header
+          const elementPosition = candidateGrid.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 100); // Small delay to ensure navigation completes
+    }
   };
 
   const renderPageNumbers = () => {
