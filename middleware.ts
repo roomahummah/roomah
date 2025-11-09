@@ -141,89 +141,40 @@ export async function middleware(request: NextRequest) {
 
   // If on auth pages (login/register) and logged in
   if (isAuthPath) {
-    if (!hasCompletedOnboarding) {
-      // Incomplete profile → send to onboarding
-      const url = request.nextUrl.clone()
-      url.pathname = '/onboarding/verifikasi'
-      const redirectResponse = NextResponse.redirect(url)
-      // Copy cookies and headers from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, {
-          secure: isProduction,
-          sameSite: 'lax',
-          path: '/',
-          httpOnly: true,
-          ...(isCustomDomain && { domain: '.roomahapp.com' })
-        })
-      })
-      // Copy important headers
-      supabaseResponse.headers.forEach((value, key) => {
-        redirectResponse.headers.set(key, value)
-      })
-      return redirectResponse
-    } else {
-      // Complete profile → send to browse page
-      const url = request.nextUrl.clone()
-      url.pathname = '/cari-jodoh'
-      const redirectResponse = NextResponse.redirect(url)
-      // Copy cookies and headers from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, {
-          secure: isProduction,
-          sameSite: 'lax',
-          path: '/',
-          httpOnly: true,
-          ...(isCustomDomain && { domain: '.roomahapp.com' })
-        })
-      })
-      // Copy important headers
-      supabaseResponse.headers.forEach((value, key) => {
-        redirectResponse.headers.set(key, value)
-      })
-      return redirectResponse
-    }
+    const redirectPath = !hasCompletedOnboarding ? '/onboarding/verifikasi' : '/cari-jodoh'
+    const url = request.nextUrl.clone()
+    url.pathname = redirectPath
+    
+    // CRITICAL: Use supabaseResponse directly with redirect status
+    // Creating new NextResponse loses cookies set by Supabase
+    supabaseResponse.headers.set('Location', url.toString())
+    // Use 303 See Other for POST->GET redirect (form submissions)
+    return new Response(null, {
+      status: 303,
+      headers: supabaseResponse.headers,
+    })
   }
 
   // If accessing protected routes but onboarding incomplete
   if (isProtectedPath && !hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
-    const redirectResponse = NextResponse.redirect(url)
-    // Copy cookies and headers from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach(cookie => {
-      redirectResponse.cookies.set(cookie.name, cookie.value, {
-        secure: isProduction,
-        sameSite: 'lax',
-        path: '/',
-        httpOnly: true,
-        ...(isCustomDomain && { domain: '.roomahapp.com' })
-      })
+    supabaseResponse.headers.set('Location', url.toString())
+    return new Response(null, {
+      status: 303,
+      headers: supabaseResponse.headers,
     })
-    supabaseResponse.headers.forEach((value, key) => {
-      redirectResponse.headers.set(key, value)
-    })
-    return redirectResponse
   }
 
   // If on onboarding page but already completed
   if (isOnboardingPath && hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
     url.pathname = '/cari-jodoh'
-    const redirectResponse = NextResponse.redirect(url)
-    // Copy cookies and headers from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach(cookie => {
-      redirectResponse.cookies.set(cookie.name, cookie.value, {
-        secure: isProduction,
-        sameSite: 'lax',
-        path: '/',
-        httpOnly: true,
-        ...(isCustomDomain && { domain: '.roomahapp.com' })
-      })
+    supabaseResponse.headers.set('Location', url.toString())
+    return new Response(null, {
+      status: 303,
+      headers: supabaseResponse.headers,
     })
-    supabaseResponse.headers.forEach((value, key) => {
-      redirectResponse.headers.set(key, value)
-    })
-    return redirectResponse
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
