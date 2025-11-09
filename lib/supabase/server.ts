@@ -22,16 +22,16 @@ export async function createClient() {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               // Force correct cookie options for production HTTPS
-              const isProduction = typeof window !== 'undefined' 
-                ? window.location.hostname.includes('roomahapp.com') || window.location.hostname.includes('netlify.app')
-                : true // Default to secure on server side
+              // On server side (no window), check NODE_ENV or default to secure
+              const isProduction = process.env.NODE_ENV === 'production' || 
+                                   process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
               
               const cookieOptions: CookieOptions = {
                 ...options,
                 secure: isProduction,
                 sameSite: 'lax',
                 path: '/',
-                // httpOnly: true, // Disabled for debugging
+                httpOnly: true, // Restore for security
               }
               cookieStore.set(name, value, cookieOptions)
             })

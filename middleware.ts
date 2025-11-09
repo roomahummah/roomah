@@ -7,9 +7,11 @@ export async function middleware(request: NextRequest) {
   // Generate X-Request-ID for correlation tracking (Web Crypto API - Edge Runtime compatible)
   const requestId = crypto.randomUUID();
   
-  // Detect production environment
-  const isProduction = request.url.includes('roomahapp.com') || 
-                       request.url.includes('netlify.app')
+  // Detect production environment and hostname
+  const url = new URL(request.url)
+  const hostname = url.hostname
+  const isProduction = hostname.includes('roomahapp.com') || hostname.includes('netlify.app')
+  const isCustomDomain = hostname === 'roomahapp.com' || hostname.endsWith('.roomahapp.com')
   
   let supabaseResponse = NextResponse.next({
     request,
@@ -66,29 +68,18 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          // DON'T recreate NextResponse here - it wipes out headers!
+          // Just set cookies on the existing supabaseResponse
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Debug logging
-            console.log('[Middleware] Setting cookie:', name, {
-              secure: isProduction,
-              sameSite: 'lax',
-              path: '/',
-              domain: isProduction ? '.roomahapp.com' : undefined
-            })
-            
-            // Force correct cookie options for production HTTPS
+            // Build proper cookie options
             const cookieOptions = {
               ...options,
               secure: isProduction,
               sameSite: 'lax' as const,
               path: '/',
-              // Remove httpOnly temporarily for debugging
-              // httpOnly: true,
-              // Explicitly set domain for production
-              ...(isProduction && { domain: '.roomahapp.com' })
+              httpOnly: true, // Restore for security
+              // Only set domain for custom domain (roomahapp.com), not netlify.app
+              ...(isCustomDomain && { domain: '.roomahapp.com' })
             }
             supabaseResponse.cookies.set(name, value, cookieOptions)
           })
@@ -155,17 +146,19 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding/verifikasi'
       const redirectResponse = NextResponse.redirect(url)
-      // Copy cookies from supabaseResponse to redirectResponse
+      // Copy cookies and headers from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach(cookie => {
-        console.log('[Middleware] Copying cookie to redirect:', cookie.name)
         redirectResponse.cookies.set(cookie.name, cookie.value, {
-          ...cookie,
           secure: isProduction,
           sameSite: 'lax',
           path: '/',
-          // httpOnly: true, // Disabled for debugging
-          ...(isProduction && { domain: '.roomahapp.com' })
+          httpOnly: true,
+          ...(isCustomDomain && { domain: '.roomahapp.com' })
         })
+      })
+      // Copy important headers
+      supabaseResponse.headers.forEach((value, key) => {
+        redirectResponse.headers.set(key, value)
       })
       return redirectResponse
     } else {
@@ -173,17 +166,19 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/cari-jodoh'
       const redirectResponse = NextResponse.redirect(url)
-      // Copy cookies from supabaseResponse to redirectResponse
+      // Copy cookies and headers from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach(cookie => {
-        console.log('[Middleware] Copying cookie to redirect:', cookie.name)
         redirectResponse.cookies.set(cookie.name, cookie.value, {
-          ...cookie,
           secure: isProduction,
           sameSite: 'lax',
           path: '/',
-          // httpOnly: true, // Disabled for debugging
-          ...(isProduction && { domain: '.roomahapp.com' })
+          httpOnly: true,
+          ...(isCustomDomain && { domain: '.roomahapp.com' })
         })
+      })
+      // Copy important headers
+      supabaseResponse.headers.forEach((value, key) => {
+        redirectResponse.headers.set(key, value)
       })
       return redirectResponse
     }
@@ -194,17 +189,18 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
     const redirectResponse = NextResponse.redirect(url)
-    // Copy cookies from supabaseResponse to redirectResponse
+    // Copy cookies and headers from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach(cookie => {
-      console.log('[Middleware] Copying cookie to redirect:', cookie.name)
       redirectResponse.cookies.set(cookie.name, cookie.value, {
-        ...cookie,
         secure: isProduction,
         sameSite: 'lax',
         path: '/',
-        // httpOnly: true, // Disabled for debugging
-        ...(isProduction && { domain: '.roomahapp.com' })
+        httpOnly: true,
+        ...(isCustomDomain && { domain: '.roomahapp.com' })
       })
+    })
+    supabaseResponse.headers.forEach((value, key) => {
+      redirectResponse.headers.set(key, value)
     })
     return redirectResponse
   }
@@ -214,17 +210,18 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/cari-jodoh'
     const redirectResponse = NextResponse.redirect(url)
-    // Copy cookies from supabaseResponse to redirectResponse
+    // Copy cookies and headers from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach(cookie => {
-      console.log('[Middleware] Copying cookie to redirect:', cookie.name)
       redirectResponse.cookies.set(cookie.name, cookie.value, {
-        ...cookie,
         secure: isProduction,
         sameSite: 'lax',
         path: '/',
-        // httpOnly: true, // Disabled for debugging
-        ...(isProduction && { domain: '.roomahapp.com' })
+        httpOnly: true,
+        ...(isCustomDomain && { domain: '.roomahapp.com' })
       })
+    })
+    supabaseResponse.headers.forEach((value, key) => {
+      redirectResponse.headers.set(key, value)
     })
     return redirectResponse
   }
