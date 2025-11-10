@@ -139,42 +139,27 @@ export async function middleware(request: NextRequest) {
 
   const hasCompletedOnboarding = profile && profile.registered_at !== null
 
-  // If on auth pages (login/register) and logged in
+  // DON'T redirect in middleware - it breaks cookie persistence!
+  // Let client-side handle redirects via useEffect or router
+  // Middleware should only block unauthorized access
+  
+  // If on auth pages (login/register) and logged in - allow access
+  // Client will redirect via JavaScript
   if (isAuthPath) {
-    const redirectPath = !hasCompletedOnboarding ? '/onboarding/verifikasi' : '/cari-jodoh'
-    const url = request.nextUrl.clone()
-    url.pathname = redirectPath
-    
-    // CRITICAL: Use supabaseResponse directly with redirect status
-    // Creating new NextResponse loses cookies set by Supabase
-    supabaseResponse.headers.set('Location', url.toString())
-    // Use 303 See Other for POST->GET redirect (form submissions)
-    return new Response(null, {
-      status: 303,
-      headers: supabaseResponse.headers,
-    })
+    return supabaseResponse
   }
 
   // If accessing protected routes but onboarding incomplete
   if (isProtectedPath && !hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
-    supabaseResponse.headers.set('Location', url.toString())
-    return new Response(null, {
-      status: 303,
-      headers: supabaseResponse.headers,
-    })
+    return NextResponse.redirect(url)
   }
 
-  // If on onboarding page but already completed
+  // If on onboarding page but already completed - allow access
+  // Client will redirect if needed
   if (isOnboardingPath && hasCompletedOnboarding) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/cari-jodoh'
-    supabaseResponse.headers.set('Location', url.toString())
-    return new Response(null, {
-      status: 303,
-      headers: supabaseResponse.headers,
-    })
+    return supabaseResponse
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
