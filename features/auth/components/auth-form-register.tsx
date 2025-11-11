@@ -51,8 +51,9 @@ export function AuthFormRegister() {
 
       if (result.success) {
         if (result.status === "signed_in") {
-          router.refresh();
-          router.push("/onboarding/verifikasi");
+          // CRITICAL: Use window.location for full page reload
+          // This ensures cookies are properly set and middleware processes the session
+          window.location.href = "/onboarding/verifikasi";
         } else {
           // needs_verification
           setError(""); // bukan error—info

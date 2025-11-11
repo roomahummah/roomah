@@ -43,8 +43,9 @@ export function AuthFormLogin() {
         const usp = new URLSearchParams(window.location.search);
         const next = usp.get("next") || "/cari-jodoh";
         
-        // Navigate directly without refresh to avoid potential router issues
-        router.push(next);
+        // CRITICAL: Use window.location for full page reload
+        // This ensures cookies are properly set and middleware processes the session
+        window.location.href = next;
       } else {
         setError(res.error || "Gagal login. Periksa email dan password Anda.");
       }

@@ -85,9 +85,9 @@ export function FiveQForm() {
   }
 
   async function proceedToNext() {
-    // tidak ada lagi cookie mock (setOnboardingFlag). DB sudah tersimpan.
-    router.refresh(); // segarkan RSC agar state server terbaca
-    router.push("/onboarding/cv");
+    // CRITICAL: Use window.location for full page reload
+    // This ensures cookies are properly set and middleware processes the session
+    window.location.href = "/onboarding/cv";
   }
 
   async function handleModalContinue() {
@@ -129,7 +129,8 @@ export function FiveQForm() {
     setShowModal(false);
     setPendingData(null); // Clear pending data
     setIsLoading(false);
-    router.push("/"); // balik ke home jika user memilih batal
+    // CRITICAL: Use window.location for full page reload
+    window.location.href = "/"; // balik ke home jika user memilih batal
   }
 
   return (

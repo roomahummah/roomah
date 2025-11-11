@@ -78,8 +78,7 @@ export async function middleware(request: NextRequest) {
               sameSite: 'lax' as const,
               path: '/',
               httpOnly: true, // Restore for security
-              // Only set domain for custom domain (roomahapp.com), not netlify.app
-              ...(isCustomDomain && { domain: '.roomahapp.com' })
+              // Domain not set - let browser handle it for better compatibility
             }
             supabaseResponse.cookies.set(name, value, cookieOptions)
           })
@@ -139,14 +138,20 @@ export async function middleware(request: NextRequest) {
 
   const hasCompletedOnboarding = profile && profile.registered_at !== null
 
-  // DON'T redirect in middleware - it breaks cookie persistence!
-  // Let client-side handle redirects via useEffect or router
-  // Middleware should only block unauthorized access
-  
-  // If on auth pages (login/register) and logged in - allow access
-  // Client will redirect via JavaScript
+  // If user is logged in and trying to access auth pages (login/register)
+  // Redirect them to app home if onboarding completed, or onboarding if not
   if (isAuthPath) {
-    return supabaseResponse
+    if (hasCompletedOnboarding) {
+      // User already registered and completed onboarding - redirect to app
+      const url = request.nextUrl.clone()
+      url.pathname = '/cari-jodoh'
+      return NextResponse.redirect(url)
+    } else {
+      // User logged in but onboarding incomplete - redirect to onboarding
+      const url = request.nextUrl.clone()
+      url.pathname = '/onboarding/verifikasi'
+      return NextResponse.redirect(url)
+    }
   }
 
   // If accessing protected routes but onboarding incomplete

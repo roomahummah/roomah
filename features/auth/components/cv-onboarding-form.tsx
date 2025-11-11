@@ -52,8 +52,9 @@ export function CvOnboardingForm() {
       const result = await submitOnboardingCvWajib(null, data);
 
       if (result.success) {
-        router.refresh();
-        router.push("/onboarding/selesai");
+        // CRITICAL: Use window.location for full page reload
+        // This ensures cookies are properly set and middleware processes the session
+        window.location.href = "/onboarding/selesai";
       } else {
         console.error(result.error);
         // TODO: Show toast error
@@ -72,8 +73,9 @@ export function CvOnboardingForm() {
       const result = await skipOnboardingCv(null);
       
       if (result.success) {
-        router.refresh();
-        router.push("/onboarding/selesai");
+        // CRITICAL: Use window.location for full page reload
+        // This ensures cookies are properly set and middleware processes the session
+        window.location.href = "/onboarding/selesai";
       } else {
         console.error(result.error);
       }
