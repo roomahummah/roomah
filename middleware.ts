@@ -77,7 +77,8 @@ export async function middleware(request: NextRequest) {
               secure: isProduction,
               sameSite: 'lax' as const,
               path: '/',
-              httpOnly: true, // Restore for security
+              httpOnly: true,
+              maxAge: options?.maxAge || 60 * 60 * 24 * 7, // Default 7 days if not set
               // Domain not set - let browser handle it for better compatibility
             }
             supabaseResponse.cookies.set(name, value, cookieOptions)
@@ -91,9 +92,40 @@ export async function middleware(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
+  // TEMPORARY DEBUG LOGGING - Remove after debugging
+  const incomingCookies = request.cookies.getAll()
+  console.log('[MIDDLEWARE DEBUG]', {
+    pathname: request.nextUrl.pathname,
+    hostname: hostname,
+    isProduction: isProduction,
+    incomingCookiesCount: incomingCookies.length,
+    hasSbCookies: incomingCookies.some(c => c.name.startsWith('sb-')),
+    cookieNames: incomingCookies.map(c => c.name)
+  })
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  console.log('[MIDDLEWARE DEBUG] User:', user ? `Authenticated: ${user.id}` : 'Not authenticated')
+
+  // CRITICAL FIX: Explicitly propagate Supabase cookies from request to response
+  // This ensures cookies persist across requests even without session changes
+  const sbCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'))
+  if (sbCookies.length > 0) {
+    console.log('[MIDDLEWARE DEBUG] Propagating', sbCookies.length, 'Supabase cookies to response')
+    sbCookies.forEach(cookie => {
+      supabaseResponse.cookies.set({
+        name: cookie.name,
+        value: cookie.value,
+        secure: isProduction,
+        sameSite: 'lax',
+        path: '/',
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      })
+    })
+  }
 
   const pathname = request.nextUrl.pathname
 
@@ -122,7 +154,10 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirectTo', pathname)
-      return NextResponse.redirect(url)
+      const redirectResponse = NextResponse.redirect(url)
+      // CRITICAL: Copy all cookies (including CSRF) to redirect response
+      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      return redirectResponse
     }
     
     // Allow access to auth pages and onboarding when not logged in
@@ -145,12 +180,18 @@ export async function middleware(request: NextRequest) {
       // User already registered and completed onboarding - redirect to app
       const url = request.nextUrl.clone()
       url.pathname = '/cari-jodoh'
-      return NextResponse.redirect(url)
+      const redirectResponse = NextResponse.redirect(url)
+      // CRITICAL: Copy all cookies from supabaseResponse to redirect response
+      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      return redirectResponse
     } else {
       // User logged in but onboarding incomplete - redirect to onboarding
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding/verifikasi'
-      return NextResponse.redirect(url)
+      const redirectResponse = NextResponse.redirect(url)
+      // CRITICAL: Copy all cookies from supabaseResponse to redirect response
+      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      return redirectResponse
     }
   }
 
@@ -158,7 +199,10 @@ export async function middleware(request: NextRequest) {
   if (isProtectedPath && !hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    // CRITICAL: Copy all cookies from supabaseResponse to redirect response
+    redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+    return redirectResponse
   }
 
   // If on onboarding page but already completed - allow access
