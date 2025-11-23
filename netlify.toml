@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm install typescript @types/node @types/react @types/react-dom && npm run build"
+  command = "npm install --legacy-peer-deps --include=dev && npm run build"
   publish = ".next"
 
 [[plugins]]
@@ -10,6 +10,13 @@
   NPM_FLAGS = "--legacy-peer-deps"
   NEXT_USE_NETLIFY_EDGE = "false"
   NEXT_FORCE_EDGE_RUNTIME = "false"
+
+# Force non-www (important for cookie consistency)
+[[redirects]]
+  from = "https://www.roomahapp.com/*"
+  to = "https://roomahapp.com/:splat"
+  status = 301
+  force = true
 
 [[headers]]
   for = "/*"
