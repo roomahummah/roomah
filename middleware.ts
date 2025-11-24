@@ -155,8 +155,16 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/login'
       url.searchParams.set('redirectTo', pathname)
       const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies (including CSRF) to redirect response
-      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      // CRITICAL: Copy all cookies to redirect response
+      supabaseResponse.cookies.getAll().forEach(cookie => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, {
+          secure: isProduction,
+          sameSite: cookie.sameSite || 'lax',
+          path: cookie.path || '/',
+          httpOnly: cookie.httpOnly ?? true,
+          maxAge: cookie.maxAge,
+        })
+      })
       return redirectResponse
     }
     
@@ -181,16 +189,32 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/cari-jodoh'
       const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies from supabaseResponse to redirect response
-      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      // CRITICAL: Copy all cookies to redirect response
+      supabaseResponse.cookies.getAll().forEach(cookie => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, {
+          secure: isProduction,
+          sameSite: cookie.sameSite || 'lax',
+          path: cookie.path || '/',
+          httpOnly: cookie.httpOnly ?? true,
+          maxAge: cookie.maxAge,
+        })
+      })
       return redirectResponse
     } else {
       // User logged in but onboarding incomplete - redirect to onboarding
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding/verifikasi'
       const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies from supabaseResponse to redirect response
-      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+      // CRITICAL: Copy all cookies to redirect response
+      supabaseResponse.cookies.getAll().forEach(cookie => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, {
+          secure: isProduction,
+          sameSite: cookie.sameSite || 'lax',
+          path: cookie.path || '/',
+          httpOnly: cookie.httpOnly ?? true,
+          maxAge: cookie.maxAge,
+        })
+      })
       return redirectResponse
     }
   }
@@ -200,8 +224,16 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
     const redirectResponse = NextResponse.redirect(url)
-    // CRITICAL: Copy all cookies from supabaseResponse to redirect response
-    redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+    // CRITICAL: Copy all cookies to redirect response
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, {
+        secure: isProduction,
+        sameSite: cookie.sameSite || 'lax',
+        path: cookie.path || '/',
+        httpOnly: cookie.httpOnly ?? true,
+        maxAge: cookie.maxAge,
+      })
+    })
     return redirectResponse
   }
 
