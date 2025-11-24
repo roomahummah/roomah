@@ -11,7 +11,6 @@ export async function middleware(request: NextRequest) {
   const url = new URL(request.url)
   const hostname = url.hostname
   const isProduction = hostname.includes('roomahapp.com') || hostname.includes('netlify.app')
-  const isCustomDomain = hostname === 'roomahapp.com' || hostname.endsWith('.roomahapp.com')
   
   let supabaseResponse = NextResponse.next({
     request,
@@ -68,18 +67,15 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // DON'T recreate NextResponse here - it wipes out headers!
-          // Just set cookies on the existing supabaseResponse
+          // Set cookies on the existing supabaseResponse
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Build proper cookie options
             const cookieOptions = {
               ...options,
               secure: isProduction,
               sameSite: 'lax' as const,
               path: '/',
               httpOnly: true,
-              maxAge: options?.maxAge || 60 * 60 * 24 * 7, // Default 7 days if not set
-              // Domain not set - let browser handle it for better compatibility
+              maxAge: options?.maxAge || 60 * 60 * 24 * 7, // Default 7 days
             }
             supabaseResponse.cookies.set(name, value, cookieOptions)
           })
@@ -88,11 +84,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  // TEMPORARY DEBUG LOGGING - Remove after debugging
+  // TEMPORARY DEBUG LOGGING
   const incomingCookies = request.cookies.getAll()
   console.log('[MIDDLEWARE DEBUG]', {
     pathname: request.nextUrl.pathname,
@@ -108,24 +100,6 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   console.log('[MIDDLEWARE DEBUG] User:', user ? `Authenticated: ${user.id}` : 'Not authenticated')
-
-  // CRITICAL FIX: Explicitly propagate Supabase cookies from request to response
-  // This ensures cookies persist across requests even without session changes
-  const sbCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'))
-  if (sbCookies.length > 0) {
-    console.log('[MIDDLEWARE DEBUG] Propagating', sbCookies.length, 'Supabase cookies to response')
-    sbCookies.forEach(cookie => {
-      supabaseResponse.cookies.set({
-        name: cookie.name,
-        value: cookie.value,
-        secure: isProduction,
-        sameSite: 'lax',
-        path: '/',
-        httpOnly: true,
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      })
-    })
-  }
 
   const pathname = request.nextUrl.pathname
 
@@ -154,18 +128,7 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirectTo', pathname)
-      const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies to redirect response
-      supabaseResponse.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, {
-          secure: isProduction,
-          sameSite: cookie.sameSite || 'lax',
-          path: cookie.path || '/',
-          httpOnly: cookie.httpOnly ?? true,
-          maxAge: cookie.maxAge,
-        })
-      })
-      return redirectResponse
+      return NextResponse.redirect(url)
     }
     
     // Allow access to auth pages and onboarding when not logged in
@@ -185,37 +148,13 @@ export async function middleware(request: NextRequest) {
   // Redirect them to app home if onboarding completed, or onboarding if not
   if (isAuthPath) {
     if (hasCompletedOnboarding) {
-      // User already registered and completed onboarding - redirect to app
       const url = request.nextUrl.clone()
       url.pathname = '/cari-jodoh'
-      const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies to redirect response
-      supabaseResponse.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, {
-          secure: isProduction,
-          sameSite: cookie.sameSite || 'lax',
-          path: cookie.path || '/',
-          httpOnly: cookie.httpOnly ?? true,
-          maxAge: cookie.maxAge,
-        })
-      })
-      return redirectResponse
+      return NextResponse.redirect(url)
     } else {
-      // User logged in but onboarding incomplete - redirect to onboarding
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding/verifikasi'
-      const redirectResponse = NextResponse.redirect(url)
-      // CRITICAL: Copy all cookies to redirect response
-      supabaseResponse.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, {
-          secure: isProduction,
-          sameSite: cookie.sameSite || 'lax',
-          path: cookie.path || '/',
-          httpOnly: cookie.httpOnly ?? true,
-          maxAge: cookie.maxAge,
-        })
-      })
-      return redirectResponse
+      return NextResponse.redirect(url)
     }
   }
 
@@ -223,52 +162,19 @@ export async function middleware(request: NextRequest) {
   if (isProtectedPath && !hasCompletedOnboarding) {
     const url = request.nextUrl.clone()
     url.pathname = '/onboarding/verifikasi'
-    const redirectResponse = NextResponse.redirect(url)
-    // CRITICAL: Copy all cookies to redirect response
-    supabaseResponse.cookies.getAll().forEach(cookie => {
-      redirectResponse.cookies.set(cookie.name, cookie.value, {
-        secure: isProduction,
-        sameSite: cookie.sameSite || 'lax',
-        path: cookie.path || '/',
-        httpOnly: cookie.httpOnly ?? true,
-        maxAge: cookie.maxAge,
-      })
-    })
-    return redirectResponse
+    return NextResponse.redirect(url)
   }
 
   // If on onboarding page but already completed - allow access
-  // Client will redirect if needed
   if (isOnboardingPath && hasCompletedOnboarding) {
     return supabaseResponse
   }
-
-  // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
-  // creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but avoid changing
-  //    the cookies!
-  // 4. Finally:
-  //    return myNewResponse
-  // If this is not done, you may be causing the browser and server to go out
-  // of sync and terminate the user's session prematurely!
 
   return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - api routes
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
