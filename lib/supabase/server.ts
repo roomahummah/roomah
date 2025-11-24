@@ -21,18 +21,16 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              // Force correct cookie options for production HTTPS
-              // On server side (no window), check NODE_ENV or default to secure
+              // ✅ CRITICAL FIX: ONLY override secure, preserve ALL other Supabase options
+              // This prevents JWT token corruption by maintaining original maxAge, httpOnly, etc.
               const isProduction = process.env.NODE_ENV === 'production' || 
                                    process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
               
               const cookieOptions: CookieOptions = {
-                ...options,
-                secure: isProduction,
-                sameSite: 'lax',
-                path: '/',
-                httpOnly: true, // Restore for security
+                ...options,  // ✅ PRESERVE all Supabase options (maxAge, httpOnly, sameSite, path)
+                secure: isProduction,  // ✅ ONLY override secure for HTTPS
               }
+              
               cookieStore.set(name, value, cookieOptions)
             })
           } catch {
