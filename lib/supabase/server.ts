@@ -16,27 +16,60 @@ export async function createClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          const allCookies = cookieStore.getAll()
+          // 🔍 ENHANCED DEBUG: Log cookies read by server client
+          console.log('[SERVER CLIENT DEBUG] getAll() called, cookies:', {
+            total: allCookies.length,
+            supabaseCookies: allCookies.filter(c => c.name.startsWith('sb-')).length,
+            names: allCookies.filter(c => c.name.startsWith('sb-')).map(c => c.name),
+          })
+          return allCookies
         },
         setAll(cookiesToSet) {
           try {
+            // 🔍 ENHANCED DEBUG: Log setAll() calls
+            console.log('[SERVER CLIENT DEBUG] setAll() called with', cookiesToSet.length, 'cookies')
+            
             cookiesToSet.forEach(({ name, value, options }) => {
-              // ✅ CRITICAL FIX: ONLY override secure, preserve ALL other Supabase options
-              // This prevents JWT token corruption by maintaining original maxAge, httpOnly, etc.
               const isProduction = process.env.NODE_ENV === 'production' || 
                                    process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
               
+              // 🔍 Log environment detection
+              console.log('[SERVER CLIENT DEBUG] Environment:', {
+                NODE_ENV: process.env.NODE_ENV,
+                VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+                isProduction,
+              })
+              
+              // 🔍 Log original options from Supabase
+              console.log('[SERVER CLIENT DEBUG] Original cookie options:', {
+                name,
+                valueLength: value.length,
+                options,
+              })
+              
               const cookieOptions: CookieOptions = {
-                ...options,  // ✅ PRESERVE all Supabase options (maxAge, httpOnly, sameSite, path)
-                secure: isProduction,  // ✅ ONLY override secure for HTTPS
+                ...options,  // ✅ PRESERVE all Supabase options
+                secure: isProduction,  // ✅ ONLY override secure
               }
               
+              // 🔍 Log final options
+              console.log('[SERVER CLIENT DEBUG] Final cookie options:', {
+                name,
+                secure: cookieOptions.secure,
+                sameSite: cookieOptions.sameSite,
+                path: cookieOptions.path,
+                httpOnly: cookieOptions.httpOnly,
+                maxAge: cookieOptions.maxAge,
+              })
+              
               cookieStore.set(name, value, cookieOptions)
+              
+              console.log('[SERVER CLIENT DEBUG] Cookie set successfully:', name)
             })
-          } catch {
+          } catch (error) {
             // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            console.error('[SERVER CLIENT DEBUG] setAll() error:', error)
           }
         },
       },
@@ -54,8 +87,11 @@ export function createAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !serviceRoleKey) {
+    console.error('[SERVER CLIENT DEBUG] Missing Supabase environment variables')
     throw new Error('Missing Supabase environment variables')
   }
+
+  console.log('[SERVER CLIENT DEBUG] Creating admin client')
 
   return createServerClient<Database>(supabaseUrl, serviceRoleKey, {
     cookies: {
@@ -74,6 +110,7 @@ export function createAdminClient() {
  * Use this in Server Components
  */
 export async function getCurrentUser() {
+  console.log('[SERVER CLIENT DEBUG] getCurrentUser() called')
   const supabase = await createClient()
 
   try {
@@ -83,13 +120,14 @@ export async function getCurrentUser() {
     } = await supabase.auth.getUser()
 
     if (error) {
-      console.error('Error getting current user:', error)
+      console.error('[SERVER CLIENT DEBUG] Error getting current user:', error)
       return null
     }
 
+    console.log('[SERVER CLIENT DEBUG] getCurrentUser() result:', user ? `User: ${user.id}` : 'No user')
     return user
   } catch (error) {
-    console.error('Error in getCurrentUser:', error)
+    console.error('[SERVER CLIENT DEBUG] Error in getCurrentUser:', error)
     return null
   }
 }
@@ -106,7 +144,10 @@ export const createServiceClient = createAdminClient;
  */
 export async function getCurrentProfile() {
   const user = await getCurrentUser()
-  if (!user) return null
+  if (!user) {
+    console.log('[SERVER CLIENT DEBUG] getCurrentProfile() - no user')
+    return null
+  }
 
   const supabase = await createClient()
 
@@ -118,13 +159,14 @@ export async function getCurrentProfile() {
       .single()
 
     if (error) {
-      console.error('Error getting profile:', error)
+      console.error('[SERVER CLIENT DEBUG] Error getting profile:', error)
       return null
     }
 
+    console.log('[SERVER CLIENT DEBUG] getCurrentProfile() success')
     return data
   } catch (error) {
-    console.error('Error in getCurrentProfile:', error)
+    console.error('[SERVER CLIENT DEBUG] Error in getCurrentProfile:', error)
     return null
   }
 }
