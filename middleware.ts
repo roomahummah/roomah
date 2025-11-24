@@ -101,6 +101,29 @@ export async function middleware(request: NextRequest) {
 
   console.log('[MIDDLEWARE DEBUG] User:', user ? `Authenticated: ${user.id}` : 'Not authenticated')
 
+  // CRITICAL: Propagate Supabase cookies to response
+  // This is necessary because getUser() only READS cookies, doesn't WRITE to response
+  // Without this, browser won't refresh cookies and they'll expire
+  const sbCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'))
+  if (sbCookies.length > 0) {
+    console.log('[MIDDLEWARE DEBUG] Propagating', sbCookies.length, 'Supabase cookies')
+    sbCookies.forEach(cookie => {
+      // IMPORTANT: Only use name and value from request cookie
+      // Set all other attributes explicitly with known-good values
+      supabaseResponse.cookies.set(
+        cookie.name,
+        cookie.value,
+        {
+          secure: isProduction,
+          sameSite: 'lax',
+          path: '/',
+          httpOnly: true,
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+        }
+      )
+    })
+  }
+
   const pathname = request.nextUrl.pathname
 
   // Protected routes - require authentication and completed onboarding
