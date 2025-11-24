@@ -63,16 +63,13 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // Let Supabase SSR handle ALL cookie operations
-          // DON'T interfere with manual propagation!
+          // ✅ Let Supabase SSR handle ALL cookie operations
+          // This preserves JWT token integrity
           cookiesToSet.forEach(({ name, value, options }) => {
-            const cookieOptions = {
-              ...options,
-              secure: isProduction,
-              sameSite: (options?.sameSite || 'lax') as 'lax' | 'strict' | 'none',
-              path: options?.path || '/',
-            }
-            supabaseResponse.cookies.set(name, value, cookieOptions)
+            supabaseResponse.cookies.set(name, value, {
+              ...options,  // ✅ PRESERVE all Supabase options
+              secure: isProduction,  // ✅ ONLY override secure for HTTPS
+            })
           })
         },
       },
@@ -92,9 +89,6 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   console.log('[MIDDLEWARE DEBUG] User:', user ? `Authenticated: ${user.id}` : 'Not authenticated')
-
-  // ❌ REMOVED: Manual cookie propagation (was corrupting cookies)
-  // Supabase SSR handles this automatically via setAll() callback
 
   const pathname = request.nextUrl.pathname
 
